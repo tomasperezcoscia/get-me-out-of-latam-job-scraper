@@ -1,7 +1,9 @@
-"""Celery tasks for mass application processing."""
+"""Mass application processing (runs in background thread or Celery)."""
 
 import json
 import time
+import threading
+import uuid
 
 import redis
 import structlog
@@ -11,7 +13,6 @@ from app.ai.skill_gap import analyze_skill_gaps
 from app.config import get_settings
 from app.database import SessionLocal
 from app.models import Application, ApplicationStatus, Job, JobStatus, LearningItem, UserProfile
-from app.tasks.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
 
@@ -21,15 +22,15 @@ def _update_progress(r: redis.Redis, key: str, data: dict) -> None:
     r.set(key, json.dumps(data), ex=3600)
 
 
-@celery_app.task(bind=True)
-def mass_apply_task(self, job_ids: list[str]) -> dict:
+def run_mass_apply(task_id: str, job_ids: list[str]) -> dict:
     """Apply to multiple jobs with AI-generated cover letters.
 
     Stores per-job progress in Redis so the frontend can poll status.
+    Can be called directly from a background thread or from Celery.
     """
     settings = get_settings()
     r = redis.from_url(settings.redis_url)
-    progress_key = f"mass_apply:{self.request.id}"
+    progress_key = f"mass_apply:{task_id}"
 
     progress = {
         "total": len(job_ids),
@@ -144,3 +145,15 @@ def mass_apply_task(self, job_ids: list[str]) -> dict:
         failed=progress["failed"],
     )
     return progress
+
+
+def start_mass_apply_thread(job_ids: list[str]) -> str:
+    """Launch mass apply in a background thread. Returns task_id."""
+    task_id = str(uuid.uuid4())
+    thread = threading.Thread(
+        target=run_mass_apply,
+        args=(task_id, job_ids),
+        daemon=True,
+    )
+    thread.start()
+    return task_id

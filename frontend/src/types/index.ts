@@ -83,6 +83,31 @@ export interface Application {
   created_at: string
 }
 
+export type ApplicationStatusType =
+  | 'applied'
+  | 'responded'
+  | 'interviewing'
+  | 'technical_test'
+  | 'offer'
+  | 'rejected'
+
+export interface ApplicationWithJob {
+  id: string
+  job_id: string
+  job_title: string
+  job_company: string
+  job_url: string
+  job_score: number | null
+  applied_at: string
+  cover_letter: string | null
+  resume_version: string | null
+  status: ApplicationStatusType
+  follow_up_date: string | null
+  interview_notes: string | null
+  notes: string | null
+  created_at: string
+}
+
 export interface ATSResult {
   ats_score: number | null
   missing_keywords: string[]
@@ -123,4 +148,12 @@ export interface LearningItem {
   detail: string
   category: string
   is_known: boolean
+}
+
+export interface SkillSummary {
+  skill: string
+  category: string
+  job_count: number
+  is_known: boolean
+  details: string[]
 }

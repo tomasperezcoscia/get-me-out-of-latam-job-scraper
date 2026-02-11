@@ -10,13 +10,15 @@ from sqlalchemy.orm import Session
 from app.api.schemas import (
     ApplicationCreate,
     ApplicationOut,
+    ApplicationUpdate,
+    ApplicationWithJobOut,
     MassApplyProgress,
     MassApplyRequest,
     MassApplyStarted,
 )
 from app.config import get_settings
 from app.database import get_db
-from app.models import Application, ApplicationStatus, Job, JobStatus
+from app.models import Application, ApplicationStatus, Job, JobStatus, LearningItem, UserProfile
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -43,6 +45,26 @@ def create_application(
     db.commit()
     db.refresh(application)
 
+    # Auto-generate skill gap analysis (best-effort, don't block the response)
+    try:
+        from app.ai.skill_gap import analyze_skill_gaps
+
+        profile = db.query(UserProfile).first()
+        if profile:
+            existing = db.query(LearningItem).filter(LearningItem.job_id == job.id).count()
+            if existing == 0:
+                items_data = analyze_skill_gaps(job, profile)
+                for item in items_data:
+                    db.add(LearningItem(
+                        job_id=job.id,
+                        skill=item.get("skill", "Unknown")[:100],
+                        detail=item.get("detail", "")[:500],
+                        category=item.get("category", "Other")[:50],
+                    ))
+                db.commit()
+    except Exception:
+        db.rollback()
+
     return application
 
 
@@ -56,6 +78,38 @@ def list_applications(
     if status:
         query = query.filter(Application.status == status)
     return query.order_by(Application.applied_at.desc()).all()
+
+
+@router.get("/pipeline", response_model=list[ApplicationWithJobOut])
+def list_applications_pipeline(
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """List all applications with job info for the pipeline view."""
+    rows = (
+        db.query(Application, Job)
+        .join(Job, Application.job_id == Job.id)
+        .order_by(Application.applied_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": app.id,
+            "job_id": app.job_id,
+            "job_title": job.title,
+            "job_company": job.company,
+            "job_url": job.url,
+            "job_score": job.match_score,
+            "applied_at": app.applied_at,
+            "cover_letter": app.cover_letter,
+            "resume_version": app.resume_version,
+            "status": app.status.value if hasattr(app.status, "value") else app.status,
+            "follow_up_date": app.follow_up_date,
+            "interview_notes": app.interview_notes,
+            "notes": app.notes,
+            "created_at": app.created_at,
+        }
+        for app, job in rows
+    ]
 
 
 @router.get("/by-job/{job_id}", response_model=ApplicationOut)
@@ -75,13 +129,38 @@ def get_application_by_job(
     return application
 
 
+@router.patch("/{application_id}", response_model=ApplicationOut)
+def update_application(
+    application_id: UUID,
+    body: ApplicationUpdate,
+    db: Session = Depends(get_db),
+) -> Application:
+    """Update an application's status, notes, or follow-up date."""
+    application = db.query(Application).filter(Application.id == application_id).first()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if body.status is not None:
+        application.status = body.status
+    if body.notes is not None:
+        application.notes = body.notes
+    if body.interview_notes is not None:
+        application.interview_notes = body.interview_notes
+    if body.follow_up_date is not None:
+        application.follow_up_date = body.follow_up_date
+
+    db.commit()
+    db.refresh(application)
+    return application
+
+
 @router.post("/mass-apply", response_model=MassApplyStarted)
 def start_mass_apply(
     body: MassApplyRequest,
     db: Session = Depends(get_db),
 ) -> dict:
-    """Start a mass apply background task."""
-    from app.tasks.applications import mass_apply_task
+    """Start a mass apply background task (runs in a thread)."""
+    from app.tasks.applications import start_mass_apply_thread
 
     # Validate job_ids exist and aren't already applied
     job_ids_str = [str(jid) for jid in body.job_ids]
@@ -89,8 +168,8 @@ def start_mass_apply(
     if len(existing) != len(body.job_ids):
         raise HTTPException(status_code=400, detail="Some job IDs not found")
 
-    result = mass_apply_task.delay(job_ids_str)
-    return {"task_id": result.id, "total": len(job_ids_str)}
+    task_id = start_mass_apply_thread(job_ids_str)
+    return {"task_id": task_id, "total": len(job_ids_str)}
 
 
 @router.get("/mass-apply/{task_id}", response_model=MassApplyProgress)

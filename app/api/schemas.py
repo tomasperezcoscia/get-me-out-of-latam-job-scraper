@@ -112,6 +112,34 @@ class ApplicationOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ApplicationUpdate(BaseModel):
+    """Update an application."""
+
+    status: str | None = None
+    notes: str | None = None
+    interview_notes: str | None = None
+    follow_up_date: datetime | None = None
+
+
+class ApplicationWithJobOut(BaseModel):
+    """Application response with job info for pipeline views."""
+
+    id: UUID
+    job_id: UUID
+    job_title: str
+    job_company: str
+    job_url: str
+    job_score: float | None
+    applied_at: datetime
+    cover_letter: str | None
+    resume_version: str | None
+    status: str
+    follow_up_date: datetime | None
+    interview_notes: str | None
+    notes: str | None
+    created_at: datetime
+
+
 class ATSCheckRequest(BaseModel):
     """Request body for ATS compatibility check."""
 
@@ -166,3 +194,13 @@ class LearningItemUpdate(BaseModel):
     """Update a learning item."""
 
     is_known: bool
+
+
+class SkillSummary(BaseModel):
+    """Aggregated skill across all jobs for the profile learning dashboard."""
+
+    skill: str
+    category: str
+    job_count: int
+    is_known: bool
+    details: list[str]

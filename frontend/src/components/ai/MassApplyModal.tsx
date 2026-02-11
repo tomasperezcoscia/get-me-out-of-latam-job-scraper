@@ -25,7 +25,7 @@ export default function MassApplyModal({ open, onClose, jobs, onDone }: MassAppl
   const [taskId, setTaskId] = useState<string | null>(null)
 
   const massApply = useMassApply()
-  const { data: progress } = useMassApplyProgress(taskId)
+  const { data: progress, error: pollError } = useMassApplyProgress(taskId)
 
   const isProcessing = phase === 'processing'
   const isDone = progress?.done ?? false
@@ -138,10 +138,22 @@ export default function MassApplyModal({ open, onClose, jobs, onDone }: MassAppl
             ))}
           </div>
 
-          <div className="flex items-center gap-2 mt-4 text-sm text-gray-500">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Processing... Do not close this dialog.
-          </div>
+          {pollError ? (
+            <div className="mt-3 bg-red-50 text-red-700 rounded-lg p-3 text-sm">
+              Connection lost. The task may still be running in the background.
+              <button
+                onClick={handleClose}
+                className="ml-2 underline font-medium"
+              >
+                Close
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mt-4 text-sm text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Processing... Do not close this dialog.
+            </div>
+          )}
         </div>
       )}
 

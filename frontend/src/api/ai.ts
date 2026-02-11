@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiGet, apiPost, apiPatch } from './client'
-import type { ATSResult, LearningItem } from '../types'
+import type { ATSResult, LearningItem, SkillSummary } from '../types'
 
 export function useGenerateCoverLetter() {
   return useMutation({
@@ -42,6 +42,13 @@ export function useLearningItems(jobId: string) {
   return useQuery({
     queryKey: ['learning-items', jobId],
     queryFn: () => apiGet<LearningItem[]>(`/jobs/${jobId}/learning-items`),
+  })
+}
+
+export function useLearningSummary() {
+  return useQuery({
+    queryKey: ['learning-summary'],
+    queryFn: () => apiGet<SkillSummary[]>('/jobs/learning-items/summary'),
   })
 }
 

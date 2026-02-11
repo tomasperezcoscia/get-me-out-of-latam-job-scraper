@@ -5,7 +5,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.schemas import ATSCheckRequest, LearningItemOut, LearningItemUpdate
+from sqlalchemy import func as sa_func
+
+from app.api.schemas import ATSCheckRequest, LearningItemOut, LearningItemUpdate, SkillSummary
 from app.database import get_db
 from app.models import Job, LearningItem, UserProfile
 
@@ -117,6 +119,33 @@ def get_learning_items(
         .order_by(LearningItem.category, LearningItem.skill)
         .all()
     )
+
+
+@router.get("/learning-items/summary", response_model=list[SkillSummary])
+def get_learning_summary(db: Session = Depends(get_db)) -> list[dict]:
+    """Aggregated skill gap summary across all jobs, sorted by job count descending."""
+    rows = (
+        db.query(
+            LearningItem.skill,
+            LearningItem.category,
+            sa_func.count(sa_func.distinct(LearningItem.job_id)).label("job_count"),
+            sa_func.bool_or(LearningItem.is_known).label("is_known"),
+            sa_func.array_agg(sa_func.distinct(LearningItem.detail)).label("details"),
+        )
+        .group_by(LearningItem.skill, LearningItem.category)
+        .order_by(sa_func.count(sa_func.distinct(LearningItem.job_id)).desc(), LearningItem.skill)
+        .all()
+    )
+    return [
+        {
+            "skill": r.skill,
+            "category": r.category,
+            "job_count": r.job_count,
+            "is_known": r.is_known or False,
+            "details": r.details or [],
+        }
+        for r in rows
+    ]
 
 
 @router.patch("/learning-items/{item_id}", response_model=LearningItemOut)

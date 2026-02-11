@@ -10,9 +10,14 @@ import {
   DollarSign,
   Languages,
   AlertCircle,
+  BookOpen,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react'
 import { useProfile } from '../api/profile'
-import { formatSalary } from '../lib/utils'
+import { useLearningSummary } from '../api/ai'
+import { formatSalary, cn } from '../lib/utils'
+import type { SkillSummary } from '../types'
 import Badge from '../components/ui/Badge'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
@@ -28,6 +33,7 @@ function getInitials(name: string): string {
 
 export default function Profile() {
   const { data: profile, isLoading, error } = useProfile()
+  const { data: skills } = useLearningSummary()
 
   if (isLoading) return <LoadingSpinner />
 
@@ -44,6 +50,15 @@ export default function Profile() {
       </div>
     )
   }
+
+  // Group skills by category
+  const grouped: Record<string, SkillSummary[]> = {}
+  for (const s of skills ?? []) {
+    if (!grouped[s.category]) grouped[s.category] = []
+    grouped[s.category].push(s)
+  }
+  const totalSkills = skills?.length ?? 0
+  const knownSkills = skills?.filter((s) => s.is_known).length ?? 0
 
   return (
     <div className="space-y-6">
@@ -223,6 +238,85 @@ export default function Profile() {
           </>
         )}
       </div>
+
+      {/* Skills to Learn Section */}
+      {totalSkills > 0 && (
+        <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+              <BookOpen className="h-5 w-5" />
+              Skills to Learn
+            </h2>
+            <span className="text-sm text-gray-500">
+              {knownSkills} of {totalSkills} covered
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+            <div
+              className="bg-green-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${totalSkills > 0 ? (knownSkills / totalSkills) * 100 : 0}%` }}
+            />
+          </div>
+
+          {/* Grouped by category */}
+          <div className="space-y-6">
+            {Object.entries(grouped).map(([category, items]) => (
+              <div key={category}>
+                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-3">
+                  {category}
+                </h3>
+                <div className="space-y-2">
+                  {items.map((item) => (
+                    <div
+                      key={item.skill}
+                      className={cn(
+                        'flex items-start gap-3 p-3 rounded-lg',
+                        item.is_known ? 'bg-green-50' : 'bg-gray-50'
+                      )}
+                    >
+                      <div className="mt-0.5 shrink-0">
+                        {item.is_known ? (
+                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <Circle className="h-5 w-5 text-gray-300" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className={cn(
+                            'text-sm font-medium',
+                            item.is_known ? 'text-green-700 line-through' : 'text-gray-900'
+                          )}>
+                            {item.skill}
+                          </p>
+                          <Badge className="bg-blue-100 text-blue-700 text-xs">
+                            {item.job_count} job{item.job_count !== 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+                        <ul className="mt-1 space-y-0.5">
+                          {item.details.map((detail, i) => (
+                            <li
+                              key={i}
+                              className={cn(
+                                'text-xs',
+                                item.is_known ? 'text-green-600 line-through' : 'text-gray-500'
+                              )}
+                            >
+                              {detail}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
