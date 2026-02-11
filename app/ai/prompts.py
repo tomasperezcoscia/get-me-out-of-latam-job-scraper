@@ -12,6 +12,7 @@ COVER_LETTER_USER = """Write a cover letter for this application:
 **Key Requirements:** {requirements}
 
 **Candidate:**
+- Name: {name}
 - Location: {location} ({timezone} — excellent overlap with US East/EU)
 - Experience: {years} years in {skills}
 - Bio: {bio}
@@ -23,7 +24,8 @@ COVER_LETTER_USER = """Write a cover letter for this application:
 4. Mention timezone advantage naturally (don't make it the focus)
 5. Close with a clear next step
 6. NO clichés: "passionate", "team player", "fast learner", "excited about this opportunity"
-7. Plain text, ready to paste"""
+7. Plain text, ready to paste
+8. Sign off with the candidate's real name — NEVER use placeholders like "[Your Name]" """
 
 RESUME_TAILOR_SYSTEM = (
     "You are an expert resume writer. Rewrite experience bullets to match job requirements. "

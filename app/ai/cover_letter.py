@@ -31,6 +31,7 @@ def generate(job: Job, profile: UserProfile) -> str:
         company=job.company,
         description=(job.description or "")[:500],
         requirements=(job.requirements or job.description or "")[:300],
+        name=profile.full_name,
         location=profile.location or "Argentina",
         timezone=profile.timezone or "UTC-3",
         years=profile.years_experience or 5,
