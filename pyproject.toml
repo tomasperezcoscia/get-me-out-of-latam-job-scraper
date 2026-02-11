@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=75.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*", "cli*"]
+
+[project]
+name = "jobhunter-pro"
+version = "0.1.0"
+description = "AI-powered remote job search automation"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # Web framework
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+
+    # CLI
+    "click>=8.1.0",
+
+    # Database
+    "sqlalchemy[asyncio]>=2.0.0",
+    "psycopg[binary]>=3.1.0",
+    "alembic>=1.14.0",
+    "pgvector>=0.3.0",
+
+    # Redis
+    "redis>=5.0.0",
+
+    # Config
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+
+    # HTTP clients
+    "httpx[http2]>=0.28.0",
+    "curl-cffi>=0.7.0",
+
+    # Parsing
+    "feedparser>=6.0.0",
+    "selectolax>=0.3.0",
+
+    # AI & Embeddings
+    "anthropic>=0.42.0",
+    "sentence-transformers>=3.0.0",
+
+    # Task queue
+    "celery[redis]>=5.4.0",
+
+    # Logging
+    "structlog>=24.0.0",
+
+    # Utilities
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+    "httpx",  # for FastAPI TestClient
+]
+scraping = [
+    "crawlee[playwright]>=1.0.0",
+]
+
+[project.scripts]
+jobhunter = "cli.commands:cli"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
